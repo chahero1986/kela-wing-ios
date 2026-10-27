@@ -6,9 +6,6 @@ on:
 jobs:
   build:
     runs-on: macos-15
-    defaults:
-      run:
-        working-directory: kela-wing-ios
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,18 +15,27 @@ jobs:
         with:
           node-version: 22
 
+      - name: Locate project root
+        id: proj
+        run: |
+          PROJ=$(dirname "$(find . -maxdepth 5 -name package.json -not -path '*/node_modules/*' | head -1)")
+          echo "project root = $PROJ"
+          echo "proj=$PROJ" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
+        working-directory: ${{ steps.proj.outputs.proj }}
         run: npm install
 
       - name: Generate iOS project (expo prebuild)
+        working-directory: ${{ steps.proj.outputs.proj }}
         run: npx expo prebuild --platform ios --clean
 
       - name: Install Pods
-        working-directory: kela-wing-ios/ios
+        working-directory: ${{ steps.proj.outputs.proj }}/ios
         run: pod install
 
       - name: Build unsigned .app
-        working-directory: kela-wing-ios/ios
+        working-directory: ${{ steps.proj.outputs.proj }}/ios
         run: |
           WORKSPACE=$(ls -d *.xcworkspace | head -1)
           echo "workspace=$WORKSPACE"
@@ -45,7 +51,7 @@ jobs:
             build
 
       - name: Package unsigned .ipa
-        working-directory: kela-wing-ios
+        working-directory: ${{ steps.proj.outputs.proj }}
         run: |
           APP=$(ls -d ios/build/Build/Products/Release-iphoneos/*.app | head -1)
           echo "app=$APP"
@@ -58,4 +64,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kela-wing-ios-unsigned
-          path: kela-wing-ios/kela-wing-ios-unsigned.ipa
+          path: ${{ steps.proj.outputs.proj }}/kela-wing-ios-unsigned.ipa
