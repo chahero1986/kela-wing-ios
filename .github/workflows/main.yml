@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: kela-wing-ios
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -13,7 +16,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: npm install
@@ -22,15 +25,16 @@ jobs:
         run: npx expo prebuild --platform ios --clean
 
       - name: Install Pods
-        working-directory: ios
+        working-directory: kela-wing-ios/ios
         run: pod install
 
       - name: Build unsigned .app
-        working-directory: ios
+        working-directory: kela-wing-ios/ios
         run: |
-          WORKSPACE=$(ls *.xcworkspace | head -1)
-          SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | awk '/Schemes:/{f=1;next} f && NF{print $1; exit}')
-          echo "workspace=$WORKSPACE scheme=$SCHEME"
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          echo "workspace=$WORKSPACE"
+          SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" 2>/dev/null | awk '/Schemes:/{f=1;next} f && NF{gsub(/^ +| +$/,""); print; exit}')
+          echo "scheme=$SCHEME"
           xcodebuild \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
@@ -41,6 +45,7 @@ jobs:
             build
 
       - name: Package unsigned .ipa
+        working-directory: kela-wing-ios
         run: |
           APP=$(ls -d ios/build/Build/Products/Release-iphoneos/*.app | head -1)
           echo "app=$APP"
@@ -53,4 +58,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kela-wing-ios-unsigned
-          path: kela-wing-ios-unsigned.ipa
+          path: kela-wing-ios/kela-wing-ios-unsigned.ipa
